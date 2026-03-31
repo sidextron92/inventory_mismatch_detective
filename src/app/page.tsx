@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -63,9 +64,10 @@ interface InvestigationResult {
   lotRecords: LotRecord[];
   warehouseInventory: Record<string, unknown>[];
   rmLotAttribution: Record<string, unknown>[];
+  orderDetails: Record<string, unknown>[];
 }
 
-function DynamicTable({ data }: { data: Record<string, unknown>[] }) {
+function DynamicTable({ data, boldColumn }: { data: Record<string, unknown>[]; boldColumn?: string }) {
   if (data.length === 0) {
     return (
       <div className="py-12 text-center text-muted-foreground text-sm">
@@ -87,9 +89,9 @@ function DynamicTable({ data }: { data: Record<string, unknown>[] }) {
       </TableHeader>
       <TableBody>
         {data.map((row, i) => (
-          <TableRow key={i} className={i % 2 === 1 ? "bg-muted/30" : ""}>
-            {Object.values(row).map((val, j) => (
-              <TableCell key={j} className="font-mono text-xs">
+          <TableRow key={i} className={""}>
+            {Object.entries(row).map(([key, val], j) => (
+              <TableCell key={j} className={`font-mono text-xs ${boldColumn && key === boldColumn ? "font-bold text-sm" : ""}`}>
                 {val === null || val === undefined ? (
                   <span className="text-muted-foreground/40">-</span>
                 ) : (
@@ -112,6 +114,12 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<InvestigationResult | null>(null);
+  const [rmlaUnsoldOnly, setRmlaUnsoldOnly] = useState(false);
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", dark);
+  }, [dark]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -138,22 +146,28 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b bg-card px-6 py-4">
-        <h1 className="text-lg font-semibold tracking-tight">Inventory Mismatch Detective</h1>
-        <p className="text-sm text-muted-foreground">
-          Debug inventory discrepancies between system and warehouse
-        </p>
+      <header className="border-b bg-card px-6 py-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight">Inventory Mismatch Detective</h1>
+          <p className="text-sm text-muted-foreground">
+            Debug inventory discrepancies between system and warehouse
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Label htmlFor="dark-mode" className="text-sm text-muted-foreground">Dark</Label>
+          <Switch id="dark-mode" checked={dark} onCheckedChange={setDark} />
+        </div>
       </header>
 
       <main className="mx-auto max-w-[1440px] px-6 py-6 space-y-5">
         {/* Notes */}
-        <Card className="bg-amber-50/50 border-amber-200/60">
+        <Card className="bg-amber-50/50 border-amber-200/60 dark:bg-amber-950/20 dark:border-amber-800/30">
           <CardContent className="pt-5">
-            <Label className="text-amber-900 font-semibold mb-2 block">Investigation Notes</Label>
+            <Label className="text-amber-900 dark:text-amber-400 font-semibold mb-2 block">Investigation Notes</Label>
             <Textarea
               placeholder="Jot down your observations here..."
               rows={3}
-              className="bg-white border-amber-200/80 resize-y"
+              className="bg-white dark:bg-background border-amber-200/80 dark:border-amber-800/30 resize-y"
             />
           </CardContent>
         </Card>
@@ -245,7 +259,7 @@ export default function Home() {
               <TabsList variant="line" className="bg-transparent p-0 gap-2 h-auto flex-wrap">
                 <TabsTrigger
                   value="vss"
-                  className="rounded-lg border border-border bg-card px-4 py-2.5 shadow-sm after:hidden data-active:border-blue-500 data-active:bg-blue-50 data-active:shadow-md"
+                  className="rounded-lg border border-border bg-card px-4 py-2.5 shadow-sm after:hidden data-active:border-blue-500 data-active:bg-blue-50 dark:data-active:bg-blue-950/40 data-active:shadow-md"
                 >
                   <span className="font-bold">VSS</span>
                   <span className="hidden sm:inline text-muted-foreground font-normal ml-1">variant_size_stock_logs</span>
@@ -253,7 +267,7 @@ export default function Home() {
                 </TabsTrigger>
                 <TabsTrigger
                   value="lm"
-                  className="rounded-lg border border-border bg-card px-4 py-2.5 shadow-sm after:hidden data-active:border-emerald-500 data-active:bg-emerald-50 data-active:shadow-md"
+                  className="rounded-lg border border-border bg-card px-4 py-2.5 shadow-sm after:hidden data-active:border-emerald-500 data-active:bg-emerald-50 dark:data-active:bg-emerald-950/40 data-active:shadow-md"
                 >
                   <span className="font-bold">LM</span>
                   <span className="hidden sm:inline text-muted-foreground font-normal ml-1">lot_master</span>
@@ -261,7 +275,7 @@ export default function Home() {
                 </TabsTrigger>
                 <TabsTrigger
                   value="wi"
-                  className="rounded-lg border border-border bg-card px-4 py-2.5 shadow-sm after:hidden data-active:border-violet-500 data-active:bg-violet-50 data-active:shadow-md"
+                  className="rounded-lg border border-border bg-card px-4 py-2.5 shadow-sm after:hidden data-active:border-violet-500 data-active:bg-violet-50 dark:data-active:bg-violet-950/40 data-active:shadow-md"
                 >
                   <span className="font-bold">WI</span>
                   <span className="hidden sm:inline text-muted-foreground font-normal ml-1">warehouse_inventory</span>
@@ -269,11 +283,19 @@ export default function Home() {
                 </TabsTrigger>
                 <TabsTrigger
                   value="rmla"
-                  className="rounded-lg border border-border bg-card px-4 py-2.5 shadow-sm after:hidden data-active:border-amber-500 data-active:bg-amber-50 data-active:shadow-md"
+                  className="rounded-lg border border-border bg-card px-4 py-2.5 shadow-sm after:hidden data-active:border-amber-500 data-active:bg-amber-50 dark:data-active:bg-amber-950/40 data-active:shadow-md"
                 >
                   <span className="font-bold">RMLA</span>
                   <span className="hidden sm:inline text-muted-foreground font-normal ml-1">rm_lot_level_attribution</span>
                   <Badge variant="secondary" className="ml-2 text-[11px]">{result.rmLotAttribution.length}</Badge>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="od"
+                  className="rounded-lg border border-border bg-card px-4 py-2.5 shadow-sm after:hidden data-active:border-pink-500 data-active:bg-pink-50 dark:data-active:bg-pink-950/40 data-active:shadow-md"
+                >
+                  <span className="font-bold">OD</span>
+                  <span className="hidden sm:inline text-muted-foreground font-normal ml-1">order_details</span>
+                  <Badge variant="secondary" className="ml-2 text-[11px]">{result.orderDetails.length}</Badge>
                 </TabsTrigger>
               </TabsList>
 
@@ -302,7 +324,7 @@ export default function Home() {
                           </TableRow>
                         ) : (
                           result.stockLogs.map((log, i) => (
-                            <TableRow key={log.id} className={i === 0 ? "bg-blue-50/60" : i % 2 === 1 ? "bg-muted/30" : ""}>
+                            <TableRow key={log.id} className={i === 0 ? "bg-blue-50/60 dark:bg-blue-950/30" : ""}>
                               <TableCell className="font-mono text-xs text-muted-foreground">{log.id}</TableCell>
                               <TableCell className="font-mono text-sm font-bold">{log.quantity}</TableCell>
                               <TableCell>
@@ -350,7 +372,7 @@ export default function Home() {
                           result.lotRecords.map((lot, i) => {
                             const isActive = lot.status === "in-shelf" || lot.status === "rto-in-shelf-good";
                             return (
-                              <TableRow key={lot.id} className={isActive ? "bg-emerald-50/50" : i % 2 === 1 ? "bg-muted/30" : ""}>
+                              <TableRow key={lot.id} className={isActive ? "bg-emerald-50/50 dark:bg-emerald-950/30" : ""}>
                                 <TableCell className="font-mono text-sm font-bold">{lot.id}</TableCell>
                                 <TableCell className="font-mono text-xs">{lot.lotSize}</TableCell>
                                 <TableCell>
@@ -381,7 +403,7 @@ export default function Home() {
                     <CardDescription>Warehouse inventory for this variant x size x warehouse</CardDescription>
                   </CardHeader>
                   <CardContent className="p-0">
-                    <DynamicTable data={result.warehouseInventory} />
+                    <DynamicTable data={result.warehouseInventory} boldColumn="count" />
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -390,19 +412,118 @@ export default function Home() {
               <TabsContent value="rmla">
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-sm">rm_lot_level_attribution</CardTitle>
-                    <CardDescription>Lot level attribution for this variant x size x warehouse</CardDescription>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-sm">rm_lot_level_attribution</CardTitle>
+                        <CardDescription>Lot level attribution for this variant x size x warehouse</CardDescription>
+                      </div>
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={rmlaUnsoldOnly}
+                          onChange={(e) => setRmlaUnsoldOnly(e.target.checked)}
+                          className="rounded border-gray-300 h-4 w-4 accent-emerald-600"
+                        />
+                        <span className="text-sm font-medium">Show unsold only</span>
+                      </label>
+                    </div>
                   </CardHeader>
                   <CardContent className="p-0">
-                    <DynamicTable data={result.rmLotAttribution} />
+                    <RmlaTable data={result.rmLotAttribution} unsoldOnly={rmlaUnsoldOnly} />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* OD */}
+              <TabsContent value="od">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm">order_details</CardTitle>
+                    <CardDescription>Orders for this variant x size x seller</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <DynamicTable data={result.orderDetails} boldColumn="skorderid" />
                   </CardContent>
                 </Card>
               </TabsContent>
             </Tabs>
+            <div className="h-[60vh]" />
           </>
         )}
       </main>
     </div>
+  );
+}
+
+function RmlaTable({ data, unsoldOnly }: { data: Record<string, unknown>[]; unsoldOnly: boolean }) {
+  if (data.length === 0) {
+    return (
+      <div className="py-12 text-center text-muted-foreground text-sm">
+        No records found
+      </div>
+    );
+  }
+
+  const columns = Object.keys(data[0]);
+
+  const filteredData = unsoldOnly
+    ? data.filter(
+        (row) =>
+          Number(row.soldDate) === 0 &&
+          Number(row.activeStatus) === 1 &&
+          Number(row.isRemoved) === 0
+      )
+    : data;
+
+  function getRowClass(row: Record<string, unknown>, i: number): string {
+    const activeStatus = Number(row.activeStatus);
+    const isRemoved = Number(row.isRemoved);
+    const soldDate = Number(row.soldDate);
+
+    if (activeStatus === 0 || isRemoved === 1) {
+      return "bg-red-50 dark:bg-red-950/30";
+    }
+    if (soldDate === 0 && activeStatus === 1 && isRemoved === 0) {
+      return "bg-emerald-50 dark:bg-emerald-950/30";
+    }
+    return "";
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow className="bg-muted/50">
+          {columns.map((col) => (
+            <TableHead key={col} className="text-xs font-semibold">
+              {col}
+            </TableHead>
+          ))}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {filteredData.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={columns.length} className="text-center py-12 text-muted-foreground">
+              No matching records
+            </TableCell>
+          </TableRow>
+        ) : (
+          filteredData.map((row, i) => (
+            <TableRow key={i} className={getRowClass(row, i)}>
+              {Object.entries(row).map(([key, val], j) => (
+                <TableCell key={j} className={`font-mono text-xs ${key === "lotid" ? "font-bold text-sm" : ""}`}>
+                  {val === null || val === undefined ? (
+                    <span className="text-muted-foreground/40">-</span>
+                  ) : (
+                    String(val)
+                  )}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))
+        )}
+      </TableBody>
+    </Table>
   );
 }
 
@@ -418,16 +539,16 @@ function SummaryCard({
   variant: "default" | "success" | "danger" | "purple";
 }) {
   const styles = {
-    default: "border-blue-200/60 bg-blue-50/40",
-    success: "border-emerald-200/60 bg-emerald-50/40",
-    danger: "border-red-200/60 bg-red-50/40",
-    purple: "border-violet-200/60 bg-violet-50/40",
+    default: "border-blue-200/60 bg-blue-50/40 dark:border-blue-800/40 dark:bg-blue-950/30",
+    success: "border-emerald-200/60 bg-emerald-50/40 dark:border-emerald-800/40 dark:bg-emerald-950/30",
+    danger: "border-red-200/60 bg-red-50/40 dark:border-red-800/40 dark:bg-red-950/30",
+    purple: "border-violet-200/60 bg-violet-50/40 dark:border-violet-800/40 dark:bg-violet-950/30",
   };
   const valueStyles = {
-    default: "text-blue-700",
-    success: "text-emerald-700",
-    danger: "text-red-700",
-    purple: "text-violet-700",
+    default: "text-blue-700 dark:text-blue-400",
+    success: "text-emerald-700 dark:text-emerald-400",
+    danger: "text-red-700 dark:text-red-400",
+    purple: "text-violet-700 dark:text-violet-400",
   };
 
   return (

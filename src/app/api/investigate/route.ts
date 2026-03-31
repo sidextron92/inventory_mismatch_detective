@@ -7,6 +7,7 @@ import {
   getWarehouseInventory,
   getRmLotLevelAttribution,
   getUnsoldRmla,
+  getOrderDetails,
 } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
   const params = { variantId, sizeId, warehouseId, sellerId };
 
   try {
-    const [stockLogs, lotRecords, physicalQty, systemQty, warehouseInventory, rmLotAttribution, unsoldRmla] = await Promise.all([
+    const [stockLogs, lotRecords, physicalQty, systemQty, warehouseInventory, rmLotAttribution, unsoldRmla, orderDetails] = await Promise.all([
       getStockLogs(params),
       getLotRecords(params),
       getPhysicalInventory(params),
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
       getWarehouseInventory(params),
       getRmLotLevelAttribution(params),
       getUnsoldRmla(params),
+      getOrderDetails(params),
     ]);
 
     return NextResponse.json({
@@ -50,6 +52,7 @@ export async function GET(request: NextRequest) {
       lotRecords,
       warehouseInventory,
       rmLotAttribution,
+      orderDetails,
     });
   } catch (error) {
     console.error("Investigation query failed:", error);
