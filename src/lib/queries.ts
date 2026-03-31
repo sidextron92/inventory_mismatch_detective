@@ -97,6 +97,18 @@ export async function getRmLotLevelAttribution(params: InvestigateParams): Promi
   return rows as Record<string, unknown>[];
 }
 
+export async function getUnsoldRmla(params: InvestigateParams): Promise<number> {
+  const pool = getPool();
+  const [rows] = await pool.query(
+    `SELECT COUNT(DISTINCT lotid) AS total
+     FROM rm_lot_level_attribution
+     WHERE variantId = ? AND sizeId = ? AND warehouseid = ?
+       AND activeStatus = 1 AND isRemoved = 0 AND soldDate = 0 AND lotid > 0`,
+    [params.variantId, params.sizeId, params.warehouseId]
+  );
+  return (rows as Array<{ total: number }>)[0].total;
+}
+
 export async function getSystemInventory(params: InvestigateParams): Promise<number> {
   const pool = getPool();
   const [rows] = await pool.query(

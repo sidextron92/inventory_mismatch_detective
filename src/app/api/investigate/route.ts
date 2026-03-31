@@ -6,6 +6,7 @@ import {
   getSystemInventory,
   getWarehouseInventory,
   getRmLotLevelAttribution,
+  getUnsoldRmla,
 } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -28,13 +29,14 @@ export async function GET(request: NextRequest) {
   const params = { variantId, sizeId, warehouseId, sellerId };
 
   try {
-    const [stockLogs, lotRecords, physicalQty, systemQty, warehouseInventory, rmLotAttribution] = await Promise.all([
+    const [stockLogs, lotRecords, physicalQty, systemQty, warehouseInventory, rmLotAttribution, unsoldRmla] = await Promise.all([
       getStockLogs(params),
       getLotRecords(params),
       getPhysicalInventory(params),
       getSystemInventory(params),
       getWarehouseInventory(params),
       getRmLotLevelAttribution(params),
+      getUnsoldRmla(params),
     ]);
 
     return NextResponse.json({
@@ -42,6 +44,7 @@ export async function GET(request: NextRequest) {
         systemQuantity: systemQty,
         physicalQuantity: physicalQty,
         mismatch: systemQty - physicalQty,
+        unsoldRmla,
       },
       stockLogs,
       lotRecords,
