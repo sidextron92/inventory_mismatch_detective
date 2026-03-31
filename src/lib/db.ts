@@ -13,6 +13,7 @@ export function getPool(): mysql.Pool {
       waitForConnections: true,
       connectionLimit: 5,
       queueLimit: 0,
+      connectTimeout: 300000,
       typeCast: function (field, next) {
         if (
           field.type === "DATETIME" ||

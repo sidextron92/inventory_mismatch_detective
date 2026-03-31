@@ -10,6 +10,25 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -116,10 +135,106 @@ export default function Home() {
   const [result, setResult] = useState<InvestigationResult | null>(null);
   const [rmlaUnsoldOnly, setRmlaUnsoldOnly] = useState(false);
   const [dark, setDark] = useState(false);
+  const [lotJourneyOpen, setLotJourneyOpen] = useState(false);
+  const [lotJourneyLotId, setLotJourneyLotId] = useState<number | null>(null);
+  const [lotJourneyData, setLotJourneyData] = useState<Record<string, unknown>[] | null>(null);
+  const [lotJourneyLoading, setLotJourneyLoading] = useState(false);
+
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [mismatchData, setMismatchData] = useState<Record<string, unknown>[] | null>(null);
+  const [mismatchLoading, setMismatchLoading] = useState(false);
+  const [mismatchFilterIssue, setMismatchFilterIssue] = useState<string>("all");
+  const [mismatchFilterWarehouse, setMismatchFilterWarehouse] = useState<string>("all");
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
+
+  async function openLotJourney(lotId: number) {
+    setLotJourneyLotId(lotId);
+    setLotJourneyOpen(true);
+    setLotJourneyLoading(true);
+    setLotJourneyData(null);
+    try {
+      const res = await fetch(`/api/lot-journey?lotId=${lotId}`);
+      const json = await res.json();
+      setLotJourneyData(json.data || []);
+    } catch {
+      setLotJourneyData([]);
+    } finally {
+      setLotJourneyLoading(false);
+    }
+  }
+
+  function computeIssueType(row: Record<string, unknown>): string {
+    const vssQty = Number(row.vssQty) || 0;
+    const lotMasterQty = Number(row.lotMasterQty) || 0;
+    const placedButNotPacked = Number(row.placedButNotPacked) || 0;
+    const isVisible = Number(row.isVisible) || 0;
+    const unsoldRMLLA = Number(row.unsoldRMLLA) || 0;
+    const packedButNotDel = Number(row.packedButNotDel) || 0;
+
+    if (vssQty > (lotMasterQty - placedButNotPacked) && vssQty > 0) {
+      return "VSS > (LotMaster - placedNotPacked)";
+    }
+    if (vssQty < (lotMasterQty - placedButNotPacked)) {
+      return "VSS < (LotMaster - placedNotPacked)";
+    }
+    if (isVisible === 1 && unsoldRMLLA < (vssQty + placedButNotPacked + packedButNotDel)) {
+      return "RMLLA < (VSS + ToBePacked + ToBeDel)";
+    }
+    if (isVisible === 1 && unsoldRMLLA > (vssQty + placedButNotPacked + packedButNotDel)) {
+      return "RMLLA > (VSS + ToBePacked + ToBeDel)";
+    }
+    return "";
+  }
+
+  async function loadMismatchData() {
+    setMismatchLoading(true);
+    try {
+      const res = await fetch("/api/mismatch-data");
+      const json = await res.json();
+      if (json.data) {
+        const withIssues = (json.data as Record<string, unknown>[])
+          .map((row) => ({ ...row, issueType: computeIssueType(row) }))
+          .filter((row) => row.issueType !== "");
+        setMismatchData(withIssues);
+      }
+    } catch {
+      setMismatchData([]);
+    } finally {
+      setMismatchLoading(false);
+    }
+  }
+
+  function handleMismatchRowClick(row: Record<string, unknown>) {
+    setVariantId(String(row.variantId || ""));
+    setSizeId(String(row.sizeId || ""));
+    setWarehouseId(String(row.fmWarehouseId || ""));
+    setSellerId(String(row.sellerid || ""));
+    setSheetOpen(false);
+    // Auto-submit investigation
+    setTimeout(() => {
+      const form = document.querySelector("form");
+      if (form) form.requestSubmit();
+    }, 100);
+  }
+
+  const filteredMismatchData = mismatchData
+    ? mismatchData.filter((row) => {
+        if (mismatchFilterIssue !== "all" && row.issueType !== mismatchFilterIssue) return false;
+        if (mismatchFilterWarehouse !== "all" && String(row.fmWarehouseId) !== mismatchFilterWarehouse) return false;
+        return true;
+      })
+    : [];
+
+  const mismatchIssueTypes = mismatchData
+    ? [...new Set(mismatchData.map((r) => String(r.issueType)))]
+    : [];
+
+  const mismatchWarehouseIds = mismatchData
+    ? [...new Set(mismatchData.map((r) => String(r.fmWarehouseId)))].sort((a, b) => Number(a) - Number(b))
+    : [];
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -153,9 +268,14 @@ export default function Home() {
             Debug inventory discrepancies between system and warehouse
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Label htmlFor="dark-mode" className="text-sm text-muted-foreground">Dark</Label>
-          <Switch id="dark-mode" checked={dark} onCheckedChange={setDark} />
+        <div className="flex items-center gap-4">
+          <Button variant="outline" onClick={() => setSheetOpen(true)}>
+            Open Mismatch Data
+          </Button>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="dark-mode" className="text-sm text-muted-foreground">Dark</Label>
+            <Switch id="dark-mode" checked={dark} onCheckedChange={setDark} />
+          </div>
         </div>
       </header>
 
@@ -356,7 +476,7 @@ export default function Home() {
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-muted/50">
-                          {["Lot ID", "Lot Size", "Status", "SK Order ID", "Order ID", "Created On", "Modified On", "Updated On"].map((h) => (
+                          {["Lot ID", "Lot Size", "Status", "SK Order ID", "Order ID", "Created On", "Modified On", "Updated On", ""].map((h) => (
                             <TableHead key={h} className="text-xs font-semibold">{h}</TableHead>
                           ))}
                         </TableRow>
@@ -364,7 +484,7 @@ export default function Home() {
                       <TableBody>
                         {result.lotRecords.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                            <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
                               No records found
                             </TableCell>
                           </TableRow>
@@ -385,6 +505,16 @@ export default function Home() {
                                 <TableCell className="font-mono text-xs">{lot.createdOn ?? <span className="text-muted-foreground/30">-</span>}</TableCell>
                                 <TableCell className="font-mono text-xs">{lot.modifiedOn ?? <span className="text-muted-foreground/30">-</span>}</TableCell>
                                 <TableCell className="font-mono text-xs">{lot.updatedOn ?? <span className="text-muted-foreground/30">-</span>}</TableCell>
+                                <TableCell>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs"
+                                    onClick={() => openLotJourney(lot.id)}
+                                  >
+                                    Lot Journey
+                                  </Button>
+                                </TableCell>
                               </TableRow>
                             );
                           })
@@ -451,6 +581,147 @@ export default function Home() {
           </>
         )}
       </main>
+
+      {/* Lot Journey Modal */}
+      <Dialog open={lotJourneyOpen} onOpenChange={setLotJourneyOpen}>
+        <DialogContent className="min-w-[900px] max-w-[95vw] w-fit max-h-[80vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Lot Journey — Lot ID: {lotJourneyLotId}</DialogTitle>
+          </DialogHeader>
+          {lotJourneyLoading ? (
+            <div className="py-12 text-center text-muted-foreground">Loading...</div>
+          ) : lotJourneyData && lotJourneyData.length > 0 ? (
+            <DynamicTable data={lotJourneyData} boldColumn="lotid" />
+          ) : (
+            <div className="py-12 text-center text-muted-foreground">No journey records found</div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Mismatch Data Sheet */}
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent side="right" className="!w-[40vw] !sm:max-w-[40vw] !max-w-none p-0 flex flex-col">
+          <SheetHeader className="px-6 py-4 border-b flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <SheetTitle>Mismatch Data</SheetTitle>
+              <Button
+                onClick={loadMismatchData}
+                disabled={mismatchLoading}
+                size="sm"
+              >
+                {mismatchLoading ? "Loading..." : mismatchData ? "Reload Data" : "Load Data"}
+              </Button>
+            </div>
+          </SheetHeader>
+
+          {mismatchLoading ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-4">
+              <div className="relative">
+                <div className="w-16 h-16 border-4 border-muted rounded-full animate-spin border-t-primary" />
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-medium">Running mismatch query...</p>
+                <p className="text-xs text-muted-foreground mt-1">This may take 2-3 minutes</p>
+              </div>
+              <div className="flex gap-1 mt-2">
+                <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0ms]" />
+                <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:150ms]" />
+                <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:300ms]" />
+              </div>
+            </div>
+          ) : mismatchData === null ? (
+            <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+              Click &quot;Load Data&quot; to fetch mismatch records
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Filters */}
+              <div className="px-6 py-3 border-b flex items-center gap-4 flex-shrink-0 bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs font-medium whitespace-nowrap">Issue Type</Label>
+                  <Select value={mismatchFilterIssue} onValueChange={(v) => v && setMismatchFilterIssue(v)}>
+                    <SelectTrigger className="w-[300px] h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All ({mismatchData.length})</SelectItem>
+                      {mismatchIssueTypes.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {t} ({mismatchData.filter((r) => r.issueType === t).length})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs font-medium whitespace-nowrap">Warehouse</Label>
+                  <Select value={mismatchFilterWarehouse} onValueChange={(v) => v && setMismatchFilterWarehouse(v)}>
+                    <SelectTrigger className="w-[120px] h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      {mismatchWarehouseIds.map((w) => (
+                        <SelectItem key={w} value={w}>{w}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Badge variant="secondary" className="text-xs">
+                  {filteredMismatchData.length} rows
+                </Badge>
+              </div>
+
+              {/* Table */}
+              <div className="flex-1 overflow-auto">
+                {filteredMismatchData.length === 0 ? (
+                  <div className="py-12 text-center text-muted-foreground text-sm">
+                    No mismatch records found
+                  </div>
+                ) : (
+                  <table className="w-full border-collapse text-sm">
+                    <thead className="sticky top-0 z-10">
+                      <tr className="bg-[#e8e8e8] dark:bg-muted border-b border-[#ccc] dark:border-border">
+                        {Object.keys(filteredMismatchData[0])
+                          .filter((col) => !["placedNotDispatchedOrderids", "placedNotDispatched", "lotsPacked"].includes(col))
+                          .map((col) => (
+                          <th key={col} className="px-3 py-2 text-left text-xs font-bold whitespace-nowrap border-r border-[#ccc] dark:border-border last:border-r-0 bg-[#e8e8e8] dark:bg-muted">
+                            {col}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredMismatchData.map((row, i) => (
+                        <tr
+                          key={i}
+                          className={`cursor-pointer border-b border-[#ddd] dark:border-border transition-colors hover:!bg-[#ffffcc] dark:hover:!bg-yellow-900/20 ${i % 2 === 0 ? "bg-white dark:bg-card" : "bg-[#f5f5f5] dark:bg-muted/40"}`}
+                          onClick={() => handleMismatchRowClick(row)}
+                        >
+                          {Object.entries(row)
+                            .filter(([key]) => !["placedNotDispatchedOrderids", "placedNotDispatched", "lotsPacked"].includes(key))
+                            .map(([key, val], j) => (
+                            <td
+                              key={j}
+                              className={`px-3 py-1.5 whitespace-nowrap font-mono text-[13px] border-r border-[#eee] dark:border-border/50 last:border-r-0 ${key === "issueType" ? "font-bold text-red-600 dark:text-red-400" : ""}`}
+                            >
+                              {val === null || val === undefined ? (
+                                <span className="text-muted-foreground/40">-</span>
+                              ) : (
+                                String(val)
+                              )}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
