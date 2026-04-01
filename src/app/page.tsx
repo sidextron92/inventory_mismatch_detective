@@ -600,7 +600,7 @@ export default function Home() {
 
       {/* Mismatch Data Sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="right" className="!w-[40vw] !sm:max-w-[40vw] !max-w-none p-0 flex flex-col">
+        <SheetContent side="right" className="!w-[75vw] !max-w-none p-0 flex flex-col">
           <SheetHeader className="px-6 py-4 border-b flex-shrink-0">
             <div className="flex items-center justify-between">
               <SheetTitle>Mismatch Data</SheetTitle>
